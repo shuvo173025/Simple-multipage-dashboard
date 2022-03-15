@@ -11,7 +11,7 @@ from app import server
 
 #### Collecting Data from responses form
 def getting_data_from_responses_file():
-    SERVICE_ACCOUNT_FILE = 'assets/keys.json'
+    SERVICE_ACCOUNT_FILE = 'keys.json'
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
     creds = None
@@ -27,22 +27,39 @@ def getting_data_from_responses_file():
 
     # Call the Sheets API
     sheet = service.spreadsheets()
-    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                range="Form Responses 1!A1:G1076").execute()
-    global values
-    values = result.get('values', [])
-    global Data
-    Data = pd.DataFrame(values)
 
-getting_data_from_responses_file()
+    #### finding the range automatically
+    res = service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                     fields='sheets(data/rowData/values/userEnteredValue,properties(index,sheetId,title))').execute()
+    sheetIndex = 0
+    sheetName = res['sheets'][sheetIndex]['properties']['title']
+    lastRow = len(res['sheets'][sheetIndex]['data'][0]['rowData'])
+    lastColumn = max([len(e['values']) for e in res['sheets'][sheetIndex]['data'][0]['rowData'] if e])
+    _range_ = str(sheetName) + '!A1:G' + str(lastRow)
+
+    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                range=_range_).execute()
+    values = result.get('values', [])
+    Data = pd.DataFrame(values)
+    return Data
 
 
 
 #### cleaning Data
-depression = Data[6].value_counts()
-depression = depression.drop(['Depression Level'])
-depression_labels = depression.index.tolist()
-depression_values = depression.values.tolist()
+def clean_label_data():
+    Data = getting_data_from_responses_file()
+    depression = Data[6].value_counts()
+    depression = depression.drop(['Depression Level'])
+    depression_labels = depression.index.tolist()
+    return depression_labels
+
+
+def clean_value_data():
+    Data = getting_data_from_responses_file()
+    depression = Data[6].value_counts()
+    depression = depression.drop(['Depression Level'])
+    depression_values = depression.values.tolist()
+    return depression_values
 
 
 
@@ -57,23 +74,9 @@ layout = html.Div(children=[
 
         dcc.Graph(
                 id='graph1',
-                figure=go.Figure(data=[go.Bar(x=depression_labels, y=depression_values)])
+                figure=go.Figure(data=[go.Bar(x=clean_label_data(), y=clean_value_data())])
             )
     ]),
 ])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
